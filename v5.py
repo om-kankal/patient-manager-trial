@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field, computed_field 
+from pydantic import BaseModel, Field, computed_field ,field_validator
 from typing import Annotated, Literal, Optional
 import json
 from fastapi.responses import JSONResponse
@@ -22,6 +22,31 @@ class ThePatient(BaseModel):
     def BMI(self)-> float:
         bmi = round(self.weight/ (self.height**2),2)
         return bmi
+
+    @field_validator("name")
+    @classmethod
+    def no_digits(cls, name : str) -> str:
+        if any(digit.isdigit() for digit in name):
+            raise HTTPException(
+                status_code=400,
+                detail = {
+                    "name value":" name must not contain number"
+                }
+            )
+        return name
+
+
+    @field_validator("city")
+    @classmethod
+    def no_digit_city(cls, city: str) -> str:
+        if any(digit.isdigit() for digit in city):
+            raise HTTPException(status_code=400,
+                                detail= {
+                                    "city name":"city name must not have number in it"
+                                })
+        return city
+
+
 
 
     @computed_field
@@ -118,8 +143,11 @@ def updatePatient(patient_id:str, patientupdate:PatientUpdate):
         existing_data[key] = values
 
     existing_data['id'] = patient_id
-    
-    patient_pydantic = ThePatient(**existing_data)
+
+    try:
+        patient_pydantic = ThePatient(**existing_data)
+    except  Exception:
+        raise HTTPException(status_code=400, content= "internal error occured..")
 
     existing_data = patient_pydantic.model_dump(exclude='id')
 
